@@ -119,7 +119,6 @@ function App() {
   const [chartType, setChartType] = useState("bar");
   const [queryCache, setQueryCache] = useState({});
 
-  // Add useRef for the query editor textarea
   const queryEditorRef = useRef(null);
 
   const handleRunQuery = useCallback(() => {
@@ -160,11 +159,10 @@ function App() {
     }
   }, []);
 
-  // Add useEffect to handle the cmd + enter shortcut
   useEffect(() => {
     const handleKeyDown = (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-        event.preventDefault(); // Prevent newline in textarea
+        event.preventDefault();
         handleRunQuery();
       }
     };
@@ -174,7 +172,6 @@ function App() {
       editor.addEventListener("keydown", handleKeyDown);
     }
 
-    // Cleanup event listener on unmount
     return () => {
       if (editor) {
         editor.removeEventListener("keydown", handleKeyDown);
@@ -246,24 +243,20 @@ function App() {
     return results.slice(0, 100);
   }, [results]);
 
-  // Define the export function
   const handleExport = () => {
     if (results.length === 0) {
-      return; // Do nothing if there are no results
+      return;
     }
 
-    // Get headers from the first result object
     const headers = Object.keys(results[0]);
     const headerRow = headers.join(",");
 
-    // Convert each row to CSV format
     const rows = results.map((row) =>
       headers
         .map((header) => {
           let value = row[header];
           if (value == null) value = "";
           value = String(value);
-          // Escape special characters for CSV
           if (
             value.includes(",") ||
             value.includes('"') ||
@@ -276,10 +269,8 @@ function App() {
         .join(",")
     );
 
-    // Combine header and rows into CSV content
     const csvContent = [headerRow, ...rows].join("\n");
 
-    // Create a downloadable file
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
@@ -521,9 +512,9 @@ function App() {
               </div>
               <div className="results-actions">
                 <button
-                  onClick={handleExport} // Add export handler
+                  onClick={handleExport}
                   className="btn-secondary"
-                  disabled={results.length === 0} // Disable if no results
+                  disabled={results.length === 0}
                 >
                   <ArrowDownTrayIcon className="icon-small" />
                   Export
