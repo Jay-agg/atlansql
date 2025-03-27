@@ -5,6 +5,7 @@ import React, {
   useCallback,
   Suspense,
   lazy,
+  useRef,
 } from "react";
 import products from "./data/products.json";
 import {
@@ -118,6 +119,36 @@ function App() {
   const [chartType, setChartType] = useState("bar");
   const [queryCache, setQueryCache] = useState({});
 
+  // Add useRef for the query editor textarea
+  const queryEditorRef = useRef(null);
+
+  const handleRunQuery = useCallback(() => {
+    if (queryCache[query]) {
+      setResults(queryCache[query]);
+      return;
+    }
+
+    const matchedQuery = predefinedQueries.find((q) => q.sql === query.trim());
+    const queryResults = matchedQuery ? matchedQuery.data : products;
+
+    setQueryHistory((prev) => [query, ...prev.slice(0, 9)]);
+
+    setQueryCache((prev) => ({
+      ...prev,
+      [query]: queryResults,
+    }));
+
+    if (!matchedQuery) {
+      setSavedQueries((prev) => {
+        const updated = [...new Set([query, ...prev])];
+        localStorage.setItem("savedQueries", JSON.stringify(updated));
+        return updated;
+      });
+    }
+
+    setResults(queryResults);
+  }, [query, queryCache, products, predefinedQueries]);
+
   useEffect(() => {
     const savedQueriesFromStorage = localStorage.getItem("savedQueries");
     if (savedQueriesFromStorage) {
@@ -128,6 +159,28 @@ function App() {
       }
     }
   }, []);
+
+  // Add useEffect to handle the cmd + enter shortcut
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+        event.preventDefault(); // Prevent newline in textarea
+        handleRunQuery();
+      }
+    };
+
+    const editor = queryEditorRef.current;
+    if (editor) {
+      editor.addEventListener("keydown", handleKeyDown);
+    }
+
+    // Cleanup event listener on unmount
+    return () => {
+      if (editor) {
+        editor.removeEventListener("keydown", handleKeyDown);
+      }
+    };
+  }, [handleRunQuery]);
 
   const chartDataGenerators = useMemo(
     () => ({
@@ -179,33 +232,6 @@ function App() {
     []
   );
 
-  const handleRunQuery = useCallback(() => {
-    if (queryCache[query]) {
-      setResults(queryCache[query]);
-      return;
-    }
-
-    const matchedQuery = predefinedQueries.find((q) => q.sql === query.trim());
-    const queryResults = matchedQuery ? matchedQuery.data : products;
-
-    setQueryHistory((prev) => [query, ...prev.slice(0, 9)]);
-
-    setQueryCache((prev) => ({
-      ...prev,
-      [query]: queryResults,
-    }));
-
-    if (!matchedQuery) {
-      setSavedQueries((prev) => {
-        const updated = [...new Set([query, ...prev])];
-        localStorage.setItem("savedQueries", JSON.stringify(updated));
-        return updated;
-      });
-    }
-
-    setResults(queryResults);
-  }, [query, queryCache, products, predefinedQueries]);
-
   const toggleSavedQuery = useCallback((q) => {
     setSavedQueries((prev) => {
       const updated = prev.includes(q)
@@ -219,6 +245,51 @@ function App() {
   const paginatedResults = useMemo(() => {
     return results.slice(0, 100);
   }, [results]);
+
+  // Define the export function
+  const handleExport = () => {
+    if (results.length === 0) {
+      return; // Do nothing if there are no results
+    }
+
+    // Get headers from the first result object
+    const headers = Object.keys(results[0]);
+    const headerRow = headers.join(",");
+
+    // Convert each row to CSV format
+    const rows = results.map((row) =>
+      headers
+        .map((header) => {
+          let value = row[header];
+          if (value == null) value = "";
+          value = String(value);
+          // Escape special characters for CSV
+          if (
+            value.includes(",") ||
+            value.includes('"') ||
+            value.includes("\n")
+          ) {
+            value = `"${value.replace(/"/g, '""')}"`;
+          }
+          return value;
+        })
+        .join(",")
+    );
+
+    // Combine header and rows into CSV content
+    const csvContent = [headerRow, ...rows].join("\n");
+
+    // Create a downloadable file
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", "query_results.csv");
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const renderChart = useCallback(() => {
     const chartOptions = {
@@ -372,6 +443,7 @@ function App() {
                   </div>
                 </div>
                 <textarea
+                  ref={queryEditorRef} // Attach ref to textarea
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="-- Enter your SQL query here\nSELECT * FROM products;"
@@ -448,7 +520,11 @@ function App() {
                 )}
               </div>
               <div className="results-actions">
-                <button className="btn-secondary">
+                <button
+                  onClick={handleExport} // Add export handler
+                  className="btn-secondary"
+                  disabled={results.length === 0} // Disable if no results
+                >
                   <ArrowDownTrayIcon className="icon-small" />
                   Export
                 </button>
