@@ -1,6 +1,6 @@
 # SQL Query Visualization Dashboard
 
-##[Project Documents](https://docs.google.com/document/d/1FdjIg3MKhNTpdl0stp9CEiqgx1KQvkFJGyxXCJAfZ9k/edit?tab=t.0)
+[Project Documents](https://docs.google.com/document/d/1FdjIg3MKhNTpdl0stp9CEiqgx1KQvkFJGyxXCJAfZ9k/edit?tab=t.0)
 
 ## 1. Project Overview in Depth
 
